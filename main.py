@@ -1,74 +1,68 @@
 #!/usr/bin/env python3
-"""Deadpan Forecasts for Cities That Do Not Exist — make.fun entry.
+"""Deadpan forecast for Tarnwick, a city that does not exist.
 
-Writes exactly one deadpan weather forecast line for an invented city to
-/output/entry.txt: 1-160 UTF-8 characters, a single line, no trailing lines.
-
-Candidate lines brainstormed for this entry (judge: a dry, deadpan TV
-meteorologist — on-subject forecast first, then funnier joke, then vivid
-detail, then broadcast tone, then character use):
-
-1. "Good evening from Tarnwick, where tonight's fog will apologise for
-   arriving 40 minutes early and leave by 9."
-2. "In Vess Hollow, expect 33 millimetres of uphill rain by 2pm, with
-   puddles forming on rooftops first."
-3. "In Mirell, snow is filed alphabetically overnight, so expect flurries
-   under S before dawn."
-4. "Overcast in Brindlewick today, 14 degrees, with a 60 percent chance of
-   rain that falls only on people who forgot umbrellas."
-
-Winner: candidate 1. It opens like a real broadcast ("Good evening from
-Tarnwick"), the joke lands on first read (fog that apologises for being
-early), it carries two concrete numbers (40 minutes, 9), and the image is
-vivid while the tone stays plain and confident.
+A single deadpan weather line, delivered in the flat tone of a late-evening
+TV meteorologist: the fog apologises for turning up early, then leaves
+promptly. One line, no more, written to /output/entry.txt.
 """
 
 import os
 import sys
 
-FORECAST = (
+FORECAST_LINE = (
     "Good evening from Tarnwick, where tonight's fog will apologise "
     "for arriving 40 minutes early and leave by 9."
 )
 
-MAX_CHARS = 160
+MAX_LEN = 160
+OUTPUT_DIR = "/output"
+OUTPUT_PATH = os.path.join(OUTPUT_DIR, "entry.txt")
+
+
+def validate(line: str) -> str:
+    """Return the line if it is a valid single-line entry, else raise.
+
+    The harness accepts exactly one line of 1-160 characters, so enforce
+    every part of that contract loudly instead of trusting the constant:
+    no embedded line breaks, no leading/trailing whitespace left in, and
+    the character count re-checked after stripping.
+    """
+    cleaned = line.strip()
+    if not cleaned:
+        raise ValueError("forecast line is empty")
+    assert "\n" not in cleaned and "\r" not in cleaned, (
+        "forecast line must contain no line breaks"
+    )
+    if len(cleaned) < 1 or len(cleaned) > MAX_LEN:
+        raise ValueError(
+            f"forecast line is {len(cleaned)} chars, outside the "
+            f"1-{MAX_LEN} char range"
+        )
+    return cleaned
+
+
+def write_entry(line: str) -> None:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(OUTPUT_PATH, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(line + "\n")
+
+
+def self_check(line: str) -> None:
+    with open(OUTPUT_PATH, "r", encoding="utf-8", newline="") as handle:
+        contents = handle.read()
+    if contents != line + "\n":
+        raise RuntimeError("entry.txt does not hold exactly the forecast line")
 
 
 def main() -> int:
-    line = FORECAST.strip()
-    # Gate: exactly one line, 1-160 UTF-8 characters, not only whitespace.
-    if not line:
-        print("error: forecast is empty", file=sys.stderr)
+    try:
+        line = validate(FORECAST_LINE)
+        write_entry(line)
+        self_check(line)
+    except (ValueError, RuntimeError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return 1
-    if "\n" in line or "\r" in line:
-        print("error: forecast must be a single line", file=sys.stderr)
-        return 1
-    if len(line) > MAX_CHARS:
-        print(
-            f"error: forecast is {len(line)} chars, over the {MAX_CHARS} limit",
-            file=sys.stderr,
-        )
-        return 1
-    encoded = line.encode("utf-8")
-    if len(encoded.decode("utf-8")) != len(line):
-        print("error: forecast is not valid UTF-8 text", file=sys.stderr)
-        return 1
-
-    out_dir = "/output"
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "entry.txt")
-    with open(out_path, "w", encoding="utf-8", newline="\n") as f:
-        f.write(line + "\n")
-
-    # Self-check the file we just wrote.
-    with open(out_path, "r", encoding="utf-8", newline="") as f:
-        written = f.read()
-    lines = written.splitlines()
-    if len(lines) != 1 or lines[0] != line:
-        print("error: entry.txt does not contain exactly the forecast line",
-              file=sys.stderr)
-        return 1
-    print(f"wrote {len(line)} chars to {out_path}")
+    print(f"wrote {len(line)} chars to {OUTPUT_PATH}")
     return 0
 
 
